@@ -6,21 +6,21 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 class VideoPlayerWidget(QWidget):
     """
-    A custom widget for playing video frames from a sequence of images.
-    It includes a display label, a navigation slider, and playback controls.
+    一个用于直接播放MP4视频文件的自定义控件。
+    它包含一个显示标签、一个导航滑块和播放控制按钮。
     """
-    # Signal emitted when the frame index changes, carrying the new frame number.
+    # 当帧索引改变时发出信号，携带新的帧号。
     frameChanged = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.image_files = []
+        self.video_capture = None
         self.current_frame_index = -1
         self.total_frames = 0
         self.is_playing = False
 
-        # --- UI Elements ---
-        self.image_label = QLabel("Please select a video folder to start.")
+        # --- UI 元素 ---
+        self.image_label = QLabel("Please select a video project to start.")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("QLabel { background-color: black; color: white; }")
         
@@ -33,7 +33,7 @@ class VideoPlayerWidget(QWidget):
         
         self.current_frame_label = QLabel("Frame: N/A")
 
-        # --- Layout ---
+        # --- 布局 ---
         control_layout = QHBoxLayout()
         control_layout.addWidget(self.prev_frame_button)
         control_layout.addWidget(self.play_pause_button)
@@ -47,79 +47,91 @@ class VideoPlayerWidget(QWidget):
         main_layout.addLayout(control_layout)
         self.setLayout(main_layout)
 
-        # --- Timer for playback ---
+        # --- 用于播放的定时器 ---
         self.timer = QTimer(self)
-        self.timer.setInterval(40) # Corresponds to 25 FPS (1000/40)
-        self.timer.timeout.connect(self.next_frame)
+        self.timer.timeout.connect(self.advance_frame)
 
-        # --- Connections ---
-        self.slider.valueChanged.connect(self.set_frame_by_index)
+        # --- 连接 ---
+        self.slider.valueChanged.connect(self.set_frame_by_slider)
         self.play_pause_button.clicked.connect(self.toggle_play_pause)
-        self.prev_frame_button.clicked.connect(self.prev_frame)
-        self.next_frame_button.clicked.connect(self.next_frame)
+        self.prev_frame_button.clicked.connect(self.go_to_prev_frame)
+        self.next_frame_button.clicked.connect(self.go_to_next_frame)
 
-    def load_image_sequence(self, img_folder_path: str):
+    def load_video(self, video_path: str):
         """
-        Loads all image files from a given folder and prepares for playback.
+        加载指定的MP4视频文件并准备播放。
         """
         self.stop_playback()
-        self.image_files = []
-        if not os.path.isdir(img_folder_path):
-            self.image_label.setText(f"Image folder not found:\n{img_folder_path}")
-            self.total_frames = 0
-            self.slider.setRange(0, 0)
+        if self.video_capture:
+            self.video_capture.release()
+            self.video_capture = None
+
+        if not os.path.exists(video_path):
+            self.image_label.setText(f"Video file not found:\n{video_path}")
+            self._reset_player_state()
+            return
+        
+        self.video_capture = cv2.VideoCapture(video_path)
+        if not self.video_capture.isOpened():
+            self.image_label.setText(f"Could not open video file:\n{video_path}")
+            self._reset_player_state()
             return
 
-        # Find all png files and sort them numerically
-        try:
-            files = [f for f in os.listdir(img_folder_path) if f.lower().endswith('.png')]
-            self.image_files = sorted(files, key=lambda x: int(os.path.splitext(x)[0]))
-            self.image_files = [os.path.join(img_folder_path, f) for f in self.image_files]
-        except (ValueError, FileNotFoundError) as e:
-             self.image_label.setText(f"Error reading image files:\n{e}")
-             return
+        self.total_frames = int(self.video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = self.video_capture.get(cv2.CAP_PROP_FPS)
+        
+        self.timer.setInterval(int(1000 / fps) if fps > 0 else 40)
 
-        self.total_frames = len(self.image_files)
         if self.total_frames > 0:
             self.slider.setRange(0, self.total_frames - 1)
             self.set_frame_by_index(0)
         else:
-            self.image_label.setText(f"No images found in:\n{img_folder_path}")
-            self.slider.setRange(0, 0)
-            self.current_frame_label.setText("Frame: N/A")
+            self.image_label.setText("Video has no frames.")
+            self._reset_player_state()
+            
+    def _reset_player_state(self):
+        """重置播放器状态。"""
+        self.total_frames = 0
+        self.current_frame_index = -1
+        self.slider.setRange(0, 0)
+        self.current_frame_label.setText("Frame: N/A")
+
 
     def set_frame_by_index(self, index: int):
         """
-        Displays the frame corresponding to the given index.
+        通过帧索引号显示对应的视频帧。
         """
-        if 0 <= index < self.total_frames and self.current_frame_index != index:
+        if not self.video_capture or not (0 <= index < self.total_frames):
+            return
+            
+        self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, index)
+        ret, frame = self.video_capture.read()
+
+        if ret and index != self.current_frame_index:
             self.current_frame_index = index
-            
-            # Load image with OpenCV
-            image = cv2.imread(self.image_files[index])
-            if image is None: return
-
-            # Convert to QPixmap
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_image.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            pixmap = QPixmap.fromImage(qt_image)
-            
-            # Scale pixmap to fit the label while maintaining aspect ratio
-            scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
-
-            # Update UI elements
+            self._display_frame(frame)
             if not self.slider.isSliderDown():
                 self.slider.setValue(index)
             self.current_frame_label.setText(f"Frame: {index}")
             self.frameChanged.emit(index)
 
+    def set_frame_by_slider(self, index: int):
+        """当滑块被手动拖动时调用。"""
+        if self.slider.isSliderDown():
+            self.set_frame_by_index(index)
+
+    def _display_frame(self, frame):
+        """将OpenCV的帧（BGR）转换为QPixmap并显示。"""
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pixmap = QPixmap.fromImage(qt_image)
+        
+        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.image_label.setPixmap(scaled_pixmap)
+
     def toggle_play_pause(self):
-        """
-        Starts or pauses the video playback.
-        """
         if self.is_playing:
             self.stop_playback()
         else:
@@ -136,27 +148,37 @@ class VideoPlayerWidget(QWidget):
         self.play_pause_button.setText("Play")
         self.timer.stop()
 
-    def next_frame(self):
-        """Moves to the next frame, looping back to the start if at the end."""
+    def advance_frame(self):
+        """定时器调用的方法，用于播放下一帧。"""
+        if self.video_capture:
+            ret, frame = self.video_capture.read()
+            if ret:
+                self.current_frame_index = int(self.video_capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+                self._display_frame(frame)
+                self.slider.setValue(self.current_frame_index)
+                self.current_frame_label.setText(f"Frame: {self.current_frame_index}")
+                self.frameChanged.emit(self.current_frame_index)
+            else:
+                # 视频播放结束，循环到开头
+                self.set_frame_by_index(0)
+
+    def go_to_next_frame(self):
         if self.total_frames > 0:
-            next_index = (self.current_frame_index + 1) % self.total_frames
+            next_index = min(self.current_frame_index + 1, self.total_frames - 1)
             self.set_frame_by_index(next_index)
 
-    def prev_frame(self):
-        """Moves to the previous frame."""
+    def go_to_prev_frame(self):
         if self.total_frames > 0:
-            next_index = self.current_frame_index - 1
-            if next_index < 0:
-                next_index = 0
-            self.set_frame_by_index(next_index)
+            prev_index = max(self.current_frame_index - 1, 0)
+            self.set_frame_by_index(prev_index)
+    
+    def cleanup(self):
+        """释放视频捕获对象。"""
+        if self.video_capture:
+            self.video_capture.release()
 
     def resizeEvent(self, event):
-        """Handle window resize to rescale the image."""
+        """处理窗口大小调整以重新缩放图像。"""
         super().resizeEvent(event)
-        if self.total_frames > 0 and self.current_frame_index != -1:
-            # Re-set the frame to trigger rescaling
-            # This is a simple way to force the pixmap to be recalculated
-            idx = self.current_frame_index
-            self.current_frame_index = -1 # Force update
-            self.set_frame_by_index(idx)
-
+        if self.video_capture and self.current_frame_index != -1:
+            self.set_frame_by_index(self.current_frame_index)

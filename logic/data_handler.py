@@ -89,6 +89,7 @@ class DataHandler:
             "video_name": video_name,
             "relative_path": relative_path, # FIX: Add relative_path to the top level
             "description": "Video annotation file.",
+            "frame_num_total":0,
             "abolished": False,
             "annotations": []
         }
