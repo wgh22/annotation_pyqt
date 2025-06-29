@@ -93,7 +93,7 @@ class DataHandler:
             "annotations": []
         }
         
-    def format_annotation(self, instruction: str, start: int, end: int, relative_path: str) -> Dict[str, Any]:
+    def format_annotation(self, instruction: str, start: int, end: int) -> Dict[str, Any]:
         """
         格式化单个标注记录。
 
@@ -101,7 +101,6 @@ class DataHandler:
             instruction (str): 动作描述。
             start (int): 开始帧号。
             end (int): 结束帧号。
-            relative_path (str): 到视频文件夹的相对路径。
 
         Returns:
             Dict[str, Any]: 代表单个标注的字典。
@@ -111,6 +110,5 @@ class DataHandler:
         return {
             "instruction": instruction,
             "start": start,
-            "end": end,
-            "relative_path": relative_path
+            "end": end
         }

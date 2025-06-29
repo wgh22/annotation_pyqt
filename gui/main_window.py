@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
         for ann in ui_data['annotations']:
             formatted_annotations.append(
                 self.data_handler.format_annotation(
-                    ann['instruction'], ann['start'], ann['end'], relative_path
+                    ann['instruction'], ann['start'], ann['end']
                 )
             )
         full_data['annotations'] = formatted_annotations

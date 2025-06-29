@@ -1,11 +1,3 @@
-# 忽略所有在 bagdata 目录下的内容
-/bagdata/
-
-# 忽略所有在 video 目录下的内容
-/video/
-
-# 忽略所有在 markout 目录下的内容
-/markout/
 
 # 忽略 Python 的缓存文件
 __pycache__/
