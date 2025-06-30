@@ -1,8 +1,8 @@
 import os
 import cv2
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QHBoxLayout, QPushButton
-from PyQt6.QtGui import QPixmap, QImage
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QHBoxLayout, QPushButton
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 
 class VideoPlayerWidget(QWidget):
     """
@@ -21,10 +21,10 @@ class VideoPlayerWidget(QWidget):
 
         # --- UI 元素 ---
         self.image_label = QLabel("Please select a video project to start.")
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("QLabel { background-color: black; color: white; }")
         
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, 0)
         
         self.play_pause_button = QPushButton("Play")
@@ -125,10 +125,10 @@ class VideoPlayerWidget(QWidget):
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
         
-        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.image_label.setPixmap(scaled_pixmap)
 
     def toggle_play_pause(self):

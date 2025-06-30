@@ -1,13 +1,13 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QTableWidget, QAbstractItemView, 
                              QTextEdit, QCheckBox, QHeaderView, QMessageBox, QTableWidgetItem)
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt
 from typing import List, Dict, Any
 
 class AnnotationWidget(QWidget):
     """
-    一个用于管理视频标注的控件。
-    允许设置开始/结束帧，编写说明，并将视频标记为废弃。
+    A widget for managing annotations for a video.
+    Allows setting start/end frames, writing instructions, and marking a video as abolished.
     """
     # 请求将当前状态保存到文件的信号
     requestSave = pyqtSignal()
@@ -43,12 +43,11 @@ class AnnotationWidget(QWidget):
         self.annotations_table = QTableWidget()
         self.annotations_table.setColumnCount(3)
         self.annotations_table.setHorizontalHeaderLabels(["Start", "End", "Instruction"])
-        self.annotations_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.annotations_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.annotations_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.annotations_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.annotations_table.verticalHeader().setVisible(False)
-        self.annotations_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.annotations_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-
+        self.annotations_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.annotations_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Interactive)
 
         # 废弃功能
         self.abolish_checkbox = QCheckBox("Abolish this video (mark as faulty)")

@@ -1,17 +1,18 @@
 import os
 import sys
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QDockWidget, QListWidget, 
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QDockWidget, QListWidget, 
                              QListWidgetItem, QVBoxLayout, QMessageBox, QSplitter)
-from PyQt6.QtCore import Qt
+from PyQt5.QtCore import Qt
 
+# Ensure the sub-packages are found
 from gui.video_player_widget import VideoPlayerWidget
 from gui.annotation_widget import AnnotationWidget
 from logic.data_handler import DataHandler
 
 class MainWindow(QMainWindow):
     """
-    应用程序的主窗口。
-    它协调文件列表、视频播放器和标注控件。
+    The main window of the application.
+    It orchestrates the file list, video player, and annotation widgets.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -33,8 +34,7 @@ class MainWindow(QMainWindow):
         self.video_player = VideoPlayerWidget()
         self.annotation_widget = AnnotationWidget()
         
-        # --- 使用 QSplitter 实现可调整大小的面板布局 ---
-        self.central_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.central_splitter = QSplitter(Qt.Horizontal)
         self.central_splitter.addWidget(self.video_player)
         self.central_splitter.addWidget(self.annotation_widget)
         self.central_splitter.setSizes([800, 480]) # 初始尺寸分布
@@ -42,8 +42,8 @@ class MainWindow(QMainWindow):
         # --- 用于视频列表的 Dock 控件 ---
         self.video_list_dock = QDockWidget("Video Projects", self)
         self.video_list_dock.setWidget(self.video_list_widget)
-        self.video_list_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.video_list_dock)
+        self.video_list_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.video_list_dock)
 
         self.setCentralWidget(self.central_splitter)
 
@@ -127,8 +127,10 @@ class MainWindow(QMainWindow):
                     ann['instruction'], ann['start'], ann['end']
                 )
             )
-        full_data['annotations'] = formatted_annotations
+            
         full_data['frame_num_total'] = self.video_player.total_frames
+        full_data['annotations'] = formatted_annotations
+        
         
         # 使用数据处理器保存
         self.data_handler.save_data(video_name, full_data)
@@ -139,12 +141,13 @@ class MainWindow(QMainWindow):
         """
         reply = QMessageBox.question(self, 'Exit Confirmation',
                                      "Are you sure you want to exit? Any unsaved changes for the current video will be saved.",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                     QMessageBox.StandardButton.No)
+                                     QMessageBox.Yes | QMessageBox.No,
+                                     QMessageBox.No)
 
-        if reply == QMessageBox.StandardButton.Yes:
+        if reply == QMessageBox.Yes:
             self.save_current_video_data()
             self.video_player.cleanup() # 确保释放视频文件
             event.accept()
         else:
             event.ignore()
+
