@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QTableWidget, QAbstractItemView, 
                              QTextEdit, QCheckBox, QHeaderView, QMessageBox, QTableWidgetItem)
 from PyQt6.QtCore import pyqtSignal, Qt
@@ -32,8 +32,9 @@ class AnnotationWidget(QWidget):
 
         # 指令输入
         self.instruction_label = QLabel("Instruction:")
+        self.pre_instruction_menu = QComboBox()
         self.instruction_input = QTextEdit()
-        self.instruction_input.setPlaceholderText("Describe the action here...")
+        self.instruction_input.setPlaceholderText("Describe the action here, or select a pre-defined one.")
         
         # 操作按钮
         self.add_annotation_button = QPushButton("Add Annotation to List")
@@ -49,10 +50,10 @@ class AnnotationWidget(QWidget):
         self.annotations_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.annotations_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
 
-
-        # 废弃功能
-        self.abolish_checkbox = QCheckBox("Abolish this video (mark as faulty)")
-
+        # 复选框
+        self.abolish_checkbox = QCheckBox("Abolish")
+        self.issue_checkbox = QCheckBox("Issue")
+        
         # --- 布局 ---
         v_layout = QVBoxLayout()
         v_layout.addWidget(self.main_label)
@@ -66,7 +67,12 @@ class AnnotationWidget(QWidget):
         start_end_layout.addWidget(self.set_end_button)
         v_layout.addLayout(start_end_layout)
 
-        v_layout.addWidget(self.instruction_label)
+        instruction_header_layout = QHBoxLayout()
+        instruction_header_layout.addWidget(self.instruction_label)
+        instruction_header_layout.addWidget(self.pre_instruction_menu)
+        instruction_header_layout.addStretch()
+        v_layout.addLayout(instruction_header_layout)
+        
         v_layout.addWidget(self.instruction_input)
         
         button_layout = QHBoxLayout()
@@ -77,7 +83,11 @@ class AnnotationWidget(QWidget):
         v_layout.addWidget(QLabel("Current Annotations:"))
         v_layout.addWidget(self.annotations_table)
         
-        v_layout.addWidget(self.abolish_checkbox)
+        problem_layout = QHBoxLayout()
+        problem_layout.addStretch()
+        problem_layout.addWidget(self.abolish_checkbox)
+        problem_layout.addWidget(self.issue_checkbox)
+        v_layout.addLayout(problem_layout)
         
         self.setLayout(v_layout)
 
@@ -87,8 +97,16 @@ class AnnotationWidget(QWidget):
         self.add_annotation_button.clicked.connect(self.add_annotation)
         self.delete_annotation_button.clicked.connect(self.delete_selected_annotation)
         # 每当数据更改时发出保存请求
+        self.pre_instruction_menu.activated.connect(self.on_pre_instruction_selected)
         self.abolish_checkbox.stateChanged.connect(self.requestSave.emit)
+        self.issue_checkbox.stateChanged.connect(self.requestSave.emit)
 
+    def on_pre_instruction_selected(self, index: int):
+        """当用户从菜单中选择一项时，填充指令输入框。"""
+        # 忽略索引为0的占位符
+        if index > 0:
+            self.instruction_input.setText(self.pre_instruction_menu.itemText(index))
+            
     def update_current_frame(self, frame_number: int):
         """接收来自视频播放器的当前帧号的槽函数。"""
         self.current_frame = frame_number
@@ -120,7 +138,6 @@ class AnnotationWidget(QWidget):
         # 添加到表格
         row_position = self.annotations_table.rowCount()
         self.annotations_table.insertRow(row_position)
-        # FIX: Use QTableWidgetItem to create items
         self.annotations_table.setItem(row_position, 0, QTableWidgetItem(str(self.start_frame)))
         self.annotations_table.setItem(row_position, 1, QTableWidgetItem(str(self.end_frame)))
         self.annotations_table.setItem(row_position, 2, QTableWidgetItem(instruction))
@@ -149,19 +166,28 @@ class AnnotationWidget(QWidget):
         self.start_frame_label.setText("Start: --")
         self.end_frame_label.setText("End: --")
         self.instruction_input.clear()
+        self.pre_instruction_menu.setCurrentIndex(0) # 重置菜单
 
     def load_data(self, data: Dict[str, Any]):
         """使用从JSON文件加载的数据填充控件。"""
         self.clear_inputs()
-        self.annotations_table.setRowCount(0) # 清空表格
+        self.annotations_table.setRowCount(0)
         
-        self.abolish_checkbox.setChecked(data.get('abolished', False))
+        # NEW: 加载预设指令
+        self.pre_instruction_menu.clear()
+        self.pre_instruction_menu.addItem("Select pre-defined instruction...")
+        pre_instructions = data.get('pre_instructions', [])
+        self.pre_instruction_menu.addItems(pre_instructions)
+
+        # NEW: 加载问题状态
+        problem = data.get('problem', {'abolished': False, 'issue': False})
+        self.abolish_checkbox.setChecked(problem.get('abolished', False))
+        self.issue_checkbox.setChecked(problem.get('issue', False))
         
         annotations = data.get('annotations', [])
         for ann in annotations:
             row_position = self.annotations_table.rowCount()
             self.annotations_table.insertRow(row_position)
-            # FIX: Use QTableWidgetItem to create items
             self.annotations_table.setItem(row_position, 0, QTableWidgetItem(str(ann.get('start', ''))))
             self.annotations_table.setItem(row_position, 1, QTableWidgetItem(str(ann.get('end', ''))))
             self.annotations_table.setItem(row_position, 2, QTableWidgetItem(str(ann.get('instruction', ''))))
@@ -176,7 +202,11 @@ class AnnotationWidget(QWidget):
                 "instruction": self.annotations_table.item(row, 2).text(),
             })
         
+        # NEW: 返回新的数据结构
         return {
-            "abolished": self.abolish_checkbox.isChecked(),
+            "problem": {
+                "abolished": self.abolish_checkbox.isChecked(),
+                "issue": self.issue_checkbox.isChecked()
+            },
             "annotations": annotations
         }

@@ -2,7 +2,9 @@ import os
 import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QDockWidget, QListWidget, 
                              QListWidgetItem, QVBoxLayout, QMessageBox, QSplitter)
-from PyQt6.QtCore import Qt
+# UPDATED: Import QEvent and QObject for the event filter
+from PyQt6.QtCore import Qt, QEvent, QObject
+from PyQt6.QtGui import QKeyEvent
 
 from gui.video_player_widget import VideoPlayerWidget
 from gui.annotation_widget import AnnotationWidget
@@ -93,7 +95,6 @@ class MainWindow(QMainWindow):
         data = self.data_handler.load_data(video_name)
         self.annotation_widget.load_data(data)
         
-        # *** CHANGE HERE: Load mp4 file instead of image sequence ***
         video_file_path = os.path.join(self.video_base_dir, video_name, 'video.mp4')
         self.video_player.load_video(video_file_path)
 
@@ -112,13 +113,11 @@ class MainWindow(QMainWindow):
         # 从标注控件获取数据
         ui_data = self.annotation_widget.get_data()
         
-        # 获取基础结构（包括像 relative_path 这样的元数据）
-        full_data = self.data_handler.load_data(video_name) # 加载现有的以保留元数据
+        # 加载现有数据以保留元数据
+        full_data = self.data_handler.load_data(video_name)
         
-        # 用UI中的数据更新结构
-        full_data['abolished'] = ui_data['abolished']
-        # 重新构建标注列表以包含正确的 relative_path
-        relative_path = full_data.get('relative_path')
+        # UPDATED: 更新 problem 对象和标注列表
+        full_data['problem'] = ui_data.get('problem', {'abolished': False, 'issue': False})
         
         formatted_annotations = []
         for ann in ui_data['annotations']:
@@ -132,6 +131,41 @@ class MainWindow(QMainWindow):
         
         # 使用数据处理器保存
         self.data_handler.save_data(video_name, full_data)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """
+        全局事件过滤器，用于处理快捷键。
+        """
+        if event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+
+            # FIX: Instead of checking the 'watched' widget,
+            # check which widget currently has focus.
+            if self.annotation_widget.instruction_input.hasFocus():
+                # If the text edit has focus, don't process any shortcuts.
+                # Let the text edit handle the key press normally.
+                return False
+
+            # If the text edit does not have focus, process global shortcuts.
+            if key == Qt.Key.Key_Left:
+                self.video_player.go_to_prev_frame()
+                return True # 事件已处理
+            elif key == Qt.Key.Key_Right:
+                self.video_player.go_to_next_frame()
+                return True # 事件已处理
+            elif key == Qt.Key.Key_Space:
+                self.video_player.toggle_play_pause()
+                return True # 事件已处理
+            elif key == Qt.Key.Key_S:
+                self.annotation_widget.set_start()
+                return True # 事件已处理
+            elif key == Qt.Key.Key_D:
+                self.annotation_widget.set_end()
+                return True # 事件已处理
+
+        # 对于所有其他事件，传递给默认处理器
+        return super().eventFilter(watched, event)
+
 
     def closeEvent(self, event):
         """

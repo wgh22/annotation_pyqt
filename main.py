@@ -36,6 +36,7 @@ def main():
     """)
 
     main_window = MainWindow()
+    app.installEventFilter(main_window)
     main_window.show()
     sys.exit(app.exec())
 

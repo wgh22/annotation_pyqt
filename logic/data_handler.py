@@ -90,7 +90,11 @@ class DataHandler:
             "relative_path": relative_path, # FIX: Add relative_path to the top level
             "description": "Video annotation file.",
             "frame_num_total":0,
-            "abolished": False,
+            "pre_instructions": [],
+            "problem": {
+                "abolished": False,
+                "issue": False
+            },
             "annotations": []
         }
         
