@@ -135,8 +135,7 @@ class VideoPlayerWidget(QWidget):
 
     def set_frame_by_slider(self, index: int):
         """当滑块被手动拖动时调用。"""
-        if self.slider.isSliderDown():
-            self.set_frame_by_index(index)
+        self.set_frame_by_index(index)
 
     def _display_frame(self, frame):
         """将OpenCV的帧（BGR）转换为QPixmap并显示。"""
