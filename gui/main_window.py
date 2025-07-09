@@ -2,8 +2,7 @@ import os
 import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QDockWidget, QListWidget, 
                              QListWidgetItem, QVBoxLayout, QMessageBox, QSplitter)
-# UPDATED: Import QEvent and QObject for the event filter
-from PyQt6.QtCore import Qt, QEvent, QObject
+from PyQt6.QtCore import Qt, QEvent, QObject, QTimer
 from PyQt6.QtGui import QKeyEvent
 
 from gui.video_player_widget import VideoPlayerWidget
@@ -98,6 +97,11 @@ class MainWindow(QMainWindow):
         video_file_path = os.path.join(self.video_base_dir, video_name, 'video.mp4')
         self.video_player.load_video(video_file_path)
 
+        # NEW: Update timeline after loading video and its data.
+        # Use a QTimer to ensure that the video player has updated its total_frames count.
+        QTimer.singleShot(10, lambda: self.video_player.update_annotations(data.get('annotations', [])))
+
+
     def save_current_video_data(self):
         """一个槽函数，用于保存当前活动视频的数据。"""
         if self.current_video_name:
@@ -129,6 +133,9 @@ class MainWindow(QMainWindow):
         full_data['annotations'] = formatted_annotations
         full_data['frame_num_total'] = self.video_player.total_frames
         
+        # NEW: Refresh the timeline display whenever data is saved
+        self.video_player.update_annotations(full_data.get('annotations', []))
+        
         # 使用数据处理器保存
         self.data_handler.save_data(video_name, full_data)
 
@@ -138,9 +145,6 @@ class MainWindow(QMainWindow):
         """
         if event.type() == QEvent.Type.KeyPress:
             key = event.key()
-
-            # FIX: Instead of checking the 'watched' widget,
-            # check which widget currently has focus.
             if self.annotation_widget.instruction_input.hasFocus():
                 # If the text edit has focus, don't process any shortcuts.
                 # Let the text edit handle the key press normally.

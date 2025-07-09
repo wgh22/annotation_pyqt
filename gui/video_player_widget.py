@@ -4,6 +4,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QHBoxLayout, 
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
+# Import the timeline widget
+from gui.timeline_widget import AnnotationTimelineWidget
+
 class VideoPlayerWidget(QWidget):
     """
     一个用于直接播放MP4视频文件的自定义控件。
@@ -18,6 +21,7 @@ class VideoPlayerWidget(QWidget):
         self.current_frame_index = -1
         self.total_frames = 0
         self.is_playing = False
+        self.segment_end_frame = -1 # 用于跟踪片段播放的结束帧
 
         # --- UI 元素 ---
         self.image_label = QLabel("Please select a video project to start.")
@@ -27,11 +31,18 @@ class VideoPlayerWidget(QWidget):
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
         
+        self.segment_info_label = QLabel("Click a segment on the timeline to see its instruction.")
+        self.segment_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.segment_info_label.setStyleSheet("QLabel { color: #2d3436; font-style: italic; }")
+
+        self.timeline = AnnotationTimelineWidget()
+        
         self.play_pause_button = QPushButton("Play")
         self.prev_frame_button = QPushButton("<< Prev")
         self.next_frame_button = QPushButton("Next >>")
         
         self.current_frame_label = QLabel("Frame: N/A")
+        self.frame_number_label = QLabel("Total Frames: 0")
 
         # --- 布局 ---
         control_layout = QHBoxLayout()
@@ -40,11 +51,15 @@ class VideoPlayerWidget(QWidget):
         control_layout.addWidget(self.next_frame_button)
         control_layout.addStretch()
         control_layout.addWidget(self.current_frame_label)
+        control_layout.addStretch()
+        control_layout.addWidget(self.frame_number_label)
 
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self.image_label)
-        main_layout.addWidget(self.slider)
-        main_layout.addLayout(control_layout)
+        main_layout.addWidget(self.image_label, 1)
+        main_layout.addWidget(self.slider, 0)
+        main_layout.addWidget(self.segment_info_label, 0)
+        main_layout.addWidget(self.timeline, 0) 
+        main_layout.addLayout(control_layout, 0)
         self.setLayout(main_layout)
 
         # --- 用于播放的定时器 ---
@@ -56,6 +71,7 @@ class VideoPlayerWidget(QWidget):
         self.play_pause_button.clicked.connect(self.toggle_play_pause)
         self.prev_frame_button.clicked.connect(self.go_to_prev_frame)
         self.next_frame_button.clicked.connect(self.go_to_next_frame)
+        self.timeline.segmentClicked.connect(self.play_segment)
 
     def load_video(self, video_path: str):
         """
@@ -84,6 +100,7 @@ class VideoPlayerWidget(QWidget):
 
         if self.total_frames > 0:
             self.slider.setRange(0, self.total_frames - 1)
+            self.frame_number_label.setText(f"Total Frames: {self.total_frames}")
             self.set_frame_by_index(0)
         else:
             self.image_label.setText("Video has no frames.")
@@ -95,7 +112,8 @@ class VideoPlayerWidget(QWidget):
         self.current_frame_index = -1
         self.slider.setRange(0, 0)
         self.current_frame_label.setText("Frame: N/A")
-
+        self.timeline.set_data([], 0)
+        self.segment_info_label.setText("Click a segment on the timeline to see its instruction.")
 
     def set_frame_by_index(self, index: int):
         """
@@ -117,8 +135,8 @@ class VideoPlayerWidget(QWidget):
 
     def set_frame_by_slider(self, index: int):
         """当滑块被手动拖动时调用。"""
-        # if self.slider.isSliderDown():
-        self.set_frame_by_index(index)
+        if self.slider.isSliderDown():
+            self.set_frame_by_index(index)
 
     def _display_frame(self, frame):
         """将OpenCV的帧（BGR）转换为QPixmap并显示。"""
@@ -147,9 +165,15 @@ class VideoPlayerWidget(QWidget):
         self.is_playing = False
         self.play_pause_button.setText("Play")
         self.timer.stop()
+        self.segment_end_frame = -1 
+        self.segment_info_label.setText("Click a segment on the timeline to see its instruction.")
 
     def advance_frame(self):
         """定时器调用的方法，用于播放下一帧。"""
+        if self.segment_end_frame != -1 and self.current_frame_index >= self.segment_end_frame:
+            self.stop_playback()
+            return
+
         if self.video_capture:
             ret, frame = self.video_capture.read()
             if ret:
@@ -159,8 +183,7 @@ class VideoPlayerWidget(QWidget):
                 self.current_frame_label.setText(f"Frame: {self.current_frame_index}")
                 self.frameChanged.emit(self.current_frame_index)
             else:
-                # 视频播放结束，循环到开头
-                self.set_frame_by_index(0)
+                self.stop_playback()
 
     def go_to_next_frame(self):
         if self.total_frames > 0:
@@ -182,3 +205,20 @@ class VideoPlayerWidget(QWidget):
         super().resizeEvent(event)
         if self.video_capture and self.current_frame_index != -1:
             self.set_frame_by_index(self.current_frame_index)
+
+    def update_annotations(self, annotations: list):
+        """Public method to refresh the timeline display."""
+        self.timeline.set_data(annotations, self.total_frames)
+
+    def play_segment(self, start_frame: int, end_frame: int, instruction: str):
+        """
+        UPDATED: Public method to play a specific segment and display its instruction.
+        """
+        if self.total_frames == 0:
+            return
+        self.stop_playback()
+        self.segment_end_frame = end_frame
+        self.segment_info_label.setText(f"Playing: {instruction}")
+        self.set_frame_by_index(start_frame)
+        # Use a short delay to ensure the frame is displayed before playback starts
+        QTimer.singleShot(50, self.start_playback)
