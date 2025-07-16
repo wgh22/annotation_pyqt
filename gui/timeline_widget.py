@@ -16,6 +16,7 @@ class AnnotationTimelineWidget(QWidget):
         self.annotations = []
         self.total_frames = 0
         self._segment_rects = [] # 存储每个片段的矩形区域，用于点击检测
+        self.selected_annotation = None
 
     def set_data(self, annotations: list, total_frames: int):
         """
@@ -23,6 +24,7 @@ class AnnotationTimelineWidget(QWidget):
         """
         self.annotations = annotations
         self.total_frames = total_frames
+        self.selected_annotation = None
         self.update() # 触发重绘事件
 
     def paintEvent(self, event):
@@ -50,9 +52,11 @@ class AnnotationTimelineWidget(QWidget):
             x_start = (start / self.total_frames) * widget_width
             x_end = (end / self.total_frames) * widget_width
             
-            # 使用两种交替的颜色以更好地区分相邻片段
-            color = QColor("#3498db") if i % 2 == 0 else QColor("#2ecc71")
-            
+           
+            if self.selected_annotation and self.selected_annotation == ann:
+                color = QColor("#f1c40f") 
+            else:
+                color = QColor(52,152,219,100)
             segment_rect = QRect(int(x_start), 2, int(x_end - x_start), self.height() - 4)
             self._segment_rects.append((segment_rect, ann))
 
@@ -69,4 +73,6 @@ class AnnotationTimelineWidget(QWidget):
                 if rect.contains(event.pos()):
                     instruction = ann.get('instruction', 'No instruction found.')
                     self.segmentClicked.emit(ann['start'], ann['end'], instruction)
+                    self.selected_annotation = ann
+                    self.update()  # 触发重绘以显示选中状态
                     break

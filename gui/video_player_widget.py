@@ -101,6 +101,7 @@ class VideoPlayerWidget(QWidget):
         if self.total_frames > 0:
             self.slider.setRange(0, self.total_frames - 1)
             self.frame_number_label.setText(f"Total Frames: {self.total_frames}")
+            self.segment_info_label.setText("Click a segment on the timeline to see its instruction.")
             self.set_frame_by_index(0)
         else:
             self.image_label.setText("Video has no frames.")
@@ -165,7 +166,7 @@ class VideoPlayerWidget(QWidget):
         self.play_pause_button.setText("Play")
         self.timer.stop()
         self.segment_end_frame = -1 
-        self.segment_info_label.setText("Click a segment on the timeline to see its instruction.")
+        #self.segment_info_label.setText("Click a segment on the timeline to see its instruction.")
 
     def advance_frame(self):
         """定时器调用的方法，用于播放下一帧。"""

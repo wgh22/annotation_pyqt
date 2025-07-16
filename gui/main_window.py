@@ -145,6 +145,13 @@ class MainWindow(QMainWindow):
         """
         if event.type() == QEvent.Type.KeyPress:
             key = event.key()
+            
+            if key == Qt.Key.Key_Escape:
+                # Set focus to a neutral widget, like the video player,
+                # to ensure the text edit loses focus.
+                self.video_player.setFocus()
+                return True
+            
             if self.annotation_widget.instruction_input.hasFocus():
                 # If the text edit has focus, don't process any shortcuts.
                 # Let the text edit handle the key press normally.
