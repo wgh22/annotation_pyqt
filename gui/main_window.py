@@ -152,6 +152,10 @@ class MainWindow(QMainWindow):
                 self.video_player.setFocus()
                 return True
             
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self.annotation_widget.add_annotation()
+                return True # 事件已处理
+            
             if self.annotation_widget.instruction_input.hasFocus():
                 # If the text edit has focus, don't process any shortcuts.
                 # Let the text edit handle the key press normally.
